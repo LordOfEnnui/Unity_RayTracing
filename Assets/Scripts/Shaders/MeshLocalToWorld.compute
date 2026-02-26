@@ -1,0 +1,38 @@
+#pragma kernel FunctionKernel
+#include "RayTraceData.hlsl"
+
+RWStructuredBuffer<Triangle> _Triangles;
+RWStructuredBuffer<MeshInfo> _AllMeshInfo;
+int _NumMeshes;
+
+void MeshLocalToWorld(int threadID)
+{
+    int triI = threadID;
+    int meshI = 0;
+    int numTris = 0;
+    for (; meshI < _NumMeshes; meshI++) {
+        //numTris += _AllMeshInfo[meshI].numTriangles;
+        if (triI < numTris) {
+            break;
+        }
+    }
+    if (triI > numTris) {
+        return;
+    }
+    float4x4 l2w = _AllMeshInfo[meshI].localToWorldMatrix;
+        
+    Triangle tri = _Triangles[triI];
+    tri.posA = mul(l2w, float4(tri.posA, 1)).xyz;
+    tri.posB = mul(l2w, float4(tri.posB, 1)).xyz;
+    tri.posC = mul(l2w, float4(tri.posC, 1)).xyz;
+            
+    tri.normalA = normalize(mul(l2w, float4(tri.normalA, 0)).xyz);
+    tri.normalB = normalize(mul(l2w, float4(tri.normalB, 0)).xyz);
+    tri.normalC = normalize(mul(l2w, float4(tri.normalC, 0)).xyz);
+    _Triangles[triI] = tri;
+}
+
+[numthreads(64, 1, 1)]
+void FunctionKernel (uint3 id: SV_DispatchThreadID) {
+    MeshLocalToWorld((int) id.x);
+}
